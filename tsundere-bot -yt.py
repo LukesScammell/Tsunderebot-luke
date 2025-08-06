@@ -1,25 +1,18 @@
 import speech_recognition as sr
-import openai
 import pyttsx3
 
-from langchain import OpenAI
 from langchain.chains import ConversationChain
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_community.chat_models import ChatOllama
+from langchain_core.prompts import PromptTemplate
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
-
-
-
-# Initialize OpenAI with your API key
-openai.api_key = "YOUR API KEY HERE"
-
+# Tsundere-style personality prompt
 prompt_template = """
-You are Amy, an anime girl who is a tsundere, someone who's not honest with their feelings. Please chat with me using this personaility. 
+You are Amy, an anime girl who is a tsundere, someone who's not honest with their feelings. Please chat with me using this personality. 
 All responses you give must be in first person.
 Don't be overly mean, remember, you are not mean, just misunderstood. 
 Do not ever break character. Do not admit you are a tsundere. 
-Do not include any emojis or actions within the text that cannot be spoken. Do not explicity say your name in your response. 
+Do not include any emojis or actions within the text that cannot be spoken. Do not explicitly say your name in your response. 
 
 Current conversation:
 {history}
@@ -27,24 +20,25 @@ Current conversation:
 Human: 
 {input}
 AI:
-
 """
 
-prompt_temp = PromptTemplate(template = prompt_template, input_variables= ['history', 'input'])
+# Prompt template setup
+prompt_temp = PromptTemplate(template=prompt_template, input_variables=['history', 'input'])
 
-# first initialize the large language model
+# 🧠 Load Ollama LLM (make sure this model is installed in Ollama first)
+llm = ChatOllama(
+    model="llama3",  # Replace with 'mistral', 'gemma', etc. if desired
+    temperature=0.8,
+)
 
-llm = ChatOpenAI(temperature=0.8,
-                 model="gpt-3.5-turbo",
-                 #model = "gpt-4o",
-                 model_kwargs= {"frequency_penalty" : 1.3, 'presence_penalty': 0.2})
+# Setup the conversation chain
+conversation = ConversationChain(
+    llm=llm,
+    prompt=prompt_temp,
+    memory=ConversationBufferWindowMemory()
+)
 
-# now initialize the conversation chain
-conversation = ConversationChain(llm=llm,
-                                 prompt = prompt_temp,
-                                 memory=ConversationBufferWindowMemory())
-
-
+# 🎤 Recognize speech input
 def recognize_speech():
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
@@ -67,18 +61,20 @@ def recognize_speech():
         print("Could not request results from Google Speech Recognition service.")
         return None
 
+# 🧾 Get response from the AI
 def get_openai_response(prompt):
     response = conversation.invoke({'input': str(prompt)})
     return str(response['response']).strip()
 
+# 🔊 Speak the AI's response
 def speak_text(text):
     engine = pyttsx3.init()
-    voices = engine.getProperty('voices')       # getting details of current voice
-    #engine.setProperty('voice', voices[0].id)  #changing index, changes voices. o for male
-    engine.setProperty('voice', voices[1].id) #changing index, changes voices. 1 for female
+    voices = engine.getProperty('voices')
+    engine.setProperty('voice', voices[1].id)  # Use a female voice
     engine.say(text)
     engine.runAndWait()
 
+# 🚀 Main loop
 def main():
     print("Welcome to the voice-activated chatbot!")
     while True:
@@ -86,11 +82,8 @@ def main():
         user_input = recognize_speech()
         if user_input:
             response = get_openai_response(user_input)
-            print(f"OpenAI: {response}")
+            print(f"AI: {response}")
             speak_text(response)
 
 if __name__ == "__main__":
     main()
-
-
-
